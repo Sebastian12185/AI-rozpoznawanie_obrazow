@@ -3,6 +3,8 @@ from django.core.files.storage import default_storage
 from tensorflow.keras.preprocessing import image as tf_image
 from tensorflow.keras.applications.inception_v3 import InceptionV3, preprocess_input, decode_predictions
 from django.core.files.base import ContentFile
+import openai
+import os
 import numpy as np
 
 
@@ -36,3 +38,29 @@ class ImageElement(models.Model):
 
             except Exception as e:
                 pass
+
+
+openai.api_key = os.environ.get('OPENAI_API_KEY')
+
+def generate_description_from_title(title): 
+    try:
+        response = openai.Completion.create(  
+            engine="gpt-3.5-turbo-instruct",  
+            prompt=f"Generate a descriptive text based on the following title: {title}\n", 
+            max_tokens=100 
+        )
+        return response.choices[0].text.strip() 
+    except Exception as e:
+        print(f"Error generating description: {str(e)}")  
+        return "{}".format(e)
+
+class TextElement(models.Model):
+    title = models.CharField(max_length=255)  
+    content = models.TextField(blank=True) 
+    def __str__(self):
+        return self.title
+
+    def save(self, *args, **kwargs):
+        if not self.content:
+            self.content = generate_description_from_title(self.title)
+        super().save(*args, **kwargs)
